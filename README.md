@@ -41,3 +41,6 @@ job_tracker/
 - Salaries accept up to two decimal places (up to 99,999,999.99). The maximum salary cannot be lower than the minimum.
 - In a job's Requirements (JSON) field, enter an object such as `{"skills":["Python","SQL","Flask"]}`. Job Match divides the number of matching required skills by the number of distinct required skills and displays a whole-number percent. Comparison ignores capitalization, spaces, dots, dashes, and underscores (so `Node.js` matches `nodejs`). Jobs without a usable skill list are skipped, and the page says how many.
 - The optional application Interview data (JSON) field can hold information such as `{"round":1,"notes":"Phone screening"}`.
+
+## Video Demonstration Link
+https://youtu.be/Db7Exr4dZ-s?si=doN8Li5LDPAI21K2
