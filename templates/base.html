@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ page_title | default('Dashboard') }}{% endblock %} | Job Application Tracker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <p class="site-name">Job Application Tracker</p>
+      <nav aria-label="Main navigation">
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        {% for section, label in [('companies','Companies'), ('jobs','Jobs'),
+                                ('applications','Applications'), ('contacts','Contacts')] %}
+          <a href="{{ url_for('list_records', table=section) }}">{{ label }}</a>
+        {% endfor %}
+        <a href="{{ url_for('job_match') }}">Job Match</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <p class="notice {{ category }}" role="status">{{ message }}</p>
+    {% endfor %}
+
+    {#
+      Default content: the shared list / detail / form / delete pages used by
+      companies.html, jobs.html, applications.html and contacts.html.
+      dashboard.html and job_match.html replace this block.
+    #}
+    {% block content %}
+
+    {% if mode == 'list' %}
+      <h1>{{ entity.title }}</h1>
+      {% block intro %}{% endblock %}
+      <form method="get" class="search" role="search">
+        <label for="q">Search {{ entity.title | lower }}</label>
+        <input type="search" name="q" id="q" value="{{ q }}" maxlength="100">
+        <div class="actions">
+          <button type="submit">Search</button>
+          {% if q %}<a href="{{ url_for('list_records', table=table) }}">Clear search</a>{% endif %}
+        </div>
+      </form>
+      <p><a class="button" href="{{ url_for('add_record', table=table) }}">Add {{ entity.singular | lower }}</a></p>
+      {% if rows %}
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            {% for key, label in entity.columns %}<th scope="col">{{ label }}</th>{% endfor %}
+            <th scope="col">Actions</th>
+          </tr></thead>
+          <tbody>
+          {% for row in rows %}
+          <tr>
+            {% for key, label in entity.columns %}
+              <td>{{ row[key] if row[key] is not none else '—' }}</td>
+            {% endfor %}
+            <td class="actions">
+              <a href="{{ url_for('detail_record', table=table, record_id=row[entity.pk]) }}">View</a>
+              <a href="{{ url_for('edit_record', table=table, record_id=row[entity.pk]) }}">Edit</a>
+              <a href="{{ url_for('delete_record', table=table, record_id=row[entity.pk]) }}">Delete</a>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <nav class="pager actions" aria-label="Pagination">
+        {% if page > 1 %}<a href="{{ url_for('list_records', table=table, q=q or none, page=page - 1) }}">Previous</a>{% endif %}
+        <span>Page {{ page }} of {{ pages }} ({{ total }} {{ (entity.title if total != 1 else entity.singular) | lower }})</span>
+        {% if page < pages %}<a href="{{ url_for('list_records', table=table, q=q or none, page=page + 1) }}">Next</a>{% endif %}
+      </nav>
+      {% elif q %}<p>No {{ entity.title | lower }} match “{{ q }}”.</p>
+      {% else %}<p>No {{ entity.title | lower }} yet.</p>{% endif %}
+
+    {% elif mode == 'detail' %}
+      <p><a href="{{ url_for('list_records', table=table) }}">Back to {{ entity.title | lower }}</a></p>
+      <h1>{{ entity.singular }} #{{ record_id }}</h1>
+      <dl>
+        {% for field, value in fields %}
+          <dt>{{ field.label }}</dt>
+          <dd>{% if value == '' %}—{% elif field.kind in ('json', 'textarea') %}<pre>{{ value }}</pre>{% else %}{{ value }}{% endif %}</dd>
+        {% endfor %}
+      </dl>
+      <p class="actions">
+        <a class="button" href="{{ url_for('edit_record', table=table, record_id=record_id) }}">Edit</a>
+        <a href="{{ url_for('delete_record', table=table, record_id=record_id) }}">Delete</a>
+      </p>
+
+    {% elif mode == 'form' %}
+      <p><a href="{{ url_for('list_records', table=table) }}">Back to {{ entity.title | lower }}</a></p>
+      <h1>{{ page_title }}</h1>
+      <form method="post" class="record-form">
+        <input name="form_token" type="hidden" value="{{ form_token }}">
+        {% if errors.get('_form') %}<p class="error">{{ errors['_form'] }}</p>{% endif %}
+        {% for field in entity.fields %}
+        {% set value = values.get(field.name, '') %}
+        {% set key = field.name %}
+        <div class="field">
+          <label for="{{ key }}">{{ field.label }}{% if field.required %} (required){% endif %}</label>
+          {% if field.kind in ('company', 'job') %}
+            <select name="{{ key }}" id="{{ key }}" {% if field.required %}required{% endif %}>
+              <option value="">Select {{ 'a company' if field.kind == 'company' else 'a job' }}</option>
+              {% for choice in options[key] %}
+                <option value="{{ choice.id }}" {% if value | string == choice.id | string %}selected{% endif %}>{{ choice.label }}{% if choice.company_name %} — {{ choice.company_name }}{% endif %} (#{{ choice.id }})</option>
+              {% endfor %}
+            </select>
+          {% elif field.kind in ('select', 'boolean') %}
+            <select name="{{ key }}" id="{{ key }}">
+              <option value="">Not recorded</option>
+              {% if field.kind == 'boolean' %}
+                {% for option, label in [('1', 'Yes'), ('0', 'No')] %}
+                  <option value="{{ option }}" {% if value | string == option %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              {% else %}
+                {% for option in field.choices %}
+                  <option value="{{ option }}" {% if value == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          {% elif field.kind in ('textarea', 'json') %}
+            <textarea name="{{ key }}" id="{{ key }}" rows="4"{% if field.kind == 'json' %} class="json"{% endif %}>{{ value }}</textarea>
+          {% else %}
+            <input name="{{ key }}" id="{{ key }}" type="{{ 'number' if field.kind == 'money' else field.kind }}" value="{{ value }}"
+                   {% if field.required %}required{% endif %}
+                   {% if field.limit %}maxlength="{{ field.limit }}"{% endif %}
+                   {% if field.kind == 'money' %}min="0" max="99999999.99" step="0.01"{% endif %}>
+          {% endif %}
+          {% if field.hint %}<small>{{ field.hint }}</small>{% endif %}
+          {% if errors.get(key) %}<p class="error">{{ errors[key] }}</p>{% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit">Save {{ entity.singular | lower }}</button>
+      </form>
+
+    {% elif mode == 'delete' %}
+      <h1>Delete {{ entity.singular | lower }}?</h1>
+      <p>Delete {{ entity.singular | lower }} #{{ record_id }}{% if name %} ({{ name }}){% endif %}? This cannot be undone.</p>
+      <form method="post" class="actions">
+        <input name="form_token" type="hidden" value="{{ form_token }}">
+        <button class="danger" type="submit">Confirm delete</button>
+        <a href="{{ url_for('detail_record', table=table, record_id=record_id) }}">Cancel</a>
+      </form>
+    {% endif %}
+
+    {% endblock %}
+  </main>
+</body>
+</html>

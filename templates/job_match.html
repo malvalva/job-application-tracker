@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Job Match{% endblock %}
+{% block content %}
+<h1>Job Match</h1>
+<p>Enter your skills separated by commas or new lines. Jobs are ranked by the share of their required skills that you have. Capitalization, spaces, dots, dashes and underscores are ignored, so “Node.js” matches “nodejs”.</p>
+<form method="post" class="record-form">
+  <input name="form_token" type="hidden" value="{{ form_token }}">
+  <div class="field">
+    <label for="skills">Your skills</label>
+    <textarea name="skills" id="skills" rows="3" maxlength="2000" placeholder="Python, SQL, Flask" required>{{ skills }}</textarea>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  </div>
+  <button type="submit">Find matches</button>
+</form>
+{% if results is not none %}
+<h2>Matching jobs</h2>
+{% if results %}
+<ol class="results">
+  {% for result in results %}
+    <li>
+      <a href="{{ url_for('detail_record', table='jobs', record_id=result.job_id) }}">{{ result.job_title }}</a>
+      {% if result.company_name %} at {{ result.company_name }}{% endif %}
+      <strong>— {{ result.percent }}% ({{ result.matched }}/{{ result.total }} skills)</strong>
+      <div>Missing: {{ result.missing | join(', ') if result.missing else 'None' }}</div>
+    </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p>No jobs have a required skill list yet. Add skills to a job's Requirements (JSON) field first.</p>
+{% endif %}
+{% if skipped and results %}
+<p><small>{{ skipped }} {{ 'job was' if skipped == 1 else 'jobs were' }} left out because no required skills are listed.</small></p>
+{% endif %}
+{% endif %}
+{% endblock %}

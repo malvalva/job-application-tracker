@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="stats">
+  {% for title, table, count in counts %}
+    <div class="stat"><strong>{{ count }}</strong> <a href="{{ url_for('list_records', table=table) }}">{{ title }}</a></div>
+  {% endfor %}
+</div>
+<h2>Applications by status</h2>
+<table>
+  <thead><tr><th scope="col">Status</th><th scope="col">Count</th></tr></thead>
+  <tbody>
+  {% for label, count in statuses.items() %}
+    <tr><td>{{ label }}</td><td>{{ count }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
